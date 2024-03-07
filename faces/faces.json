@@ -1,0 +1,14 @@
+{
+    "images": [
+        {
+            "id": 1,
+            "name": "Flabbergasted",
+            "bitmap": "faces\\flabbergasted.bmp"
+        },
+        {
+            "id": 2,
+            "name": "UwU",
+            "bitmap": "faces\\uwu.bmp"
+        }
+    ]
+}

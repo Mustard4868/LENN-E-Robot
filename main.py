@@ -1,4 +1,5 @@
 import robot
+from robot import *
 
 def main():
 
@@ -18,6 +19,9 @@ def main():
 
         def __ne__(self, other):
             return not self.__eq__(other)
+        
+    while not Sensor.UltrasonicSensor.GetDistance():
+        Movement.MoveForward(1) # Change this to a more natural movement style.
         
 if __name__ == "__main__":
     main()
