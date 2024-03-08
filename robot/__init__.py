@@ -21,15 +21,17 @@ class Robot():
     def __init__(self):
 
         """ !!! CHANGE THE PIN NUMBERS TO THE CORRECT ONES !!! """
-        """self.ColorSensor         = ColorSensor(1)
+        self.ColorSensor         = ColorSensor(1)
         self.UltraSonicSensor    = UltrasonicSensor(2)
         self.LeftContrastSensor  = ContrastSensor(3)
-        self.RightContrastSensor = ContrastSensor(4)"""
+        self.RightContrastSensor = ContrastSensor(4)
 
-        """self.LeftMotor  = Motor(5)
+        self.LeftMotor  = Motor(5)
         self.RightMotor = Motor(6)
-        self.Servo      = Servo(7)"""
+        self.Servo      = Servo(7)
         self.Magnet     = Magnet(8)
+
+        self.Screen = None
         
         """ Initialize the state """
         self.CurrentState = Idle(self)
