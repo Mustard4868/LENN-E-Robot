@@ -3,15 +3,15 @@ from abc import ABC, abstractmethod
 class State(ABC): # Abstract class / SUPERCLASS
     def __init__(self, robot):
         self.robot = robot
-        super().__init__
+        super().__init__()
 
     @abstractmethod
     def on_enter(self):
-        pass
+        print("Entered {self.__class__.__name__}")
 
     @abstractmethod
     def on_exit(self):
-        pass
+        print("Exiting {self.__class__.__name__}")
 
     @abstractmethod
     def execute(self):
