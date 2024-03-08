@@ -21,24 +21,26 @@ class Robot():
     def __init__(self):
 
         """ !!! CHANGE THE PIN NUMBERS TO THE CORRECT ONES !!! """
-        self.ColorSensor         = ColorSensor(1)
+        """self.ColorSensor         = ColorSensor(1)
         self.UltraSonicSensor    = UltrasonicSensor(2)
         self.LeftContrastSensor  = ContrastSensor(3)
-        self.RightContrastSensor = ContrastSensor(4)
+        self.RightContrastSensor = ContrastSensor(4)"""
 
-        self.LeftMotor  = Motor(5)
+        """self.LeftMotor  = Motor(5)
         self.RightMotor = Motor(6)
-        self.Servo      = Servo(7)
+        self.Servo      = Servo(7)"""
         self.Magnet     = Magnet(8)
         
         """ Initialize the state """
-        self.CurrentState = Idle()
+        self.CurrentState = Idle(self)
+        self.CurrentState.on_enter()
+        self.CurrentState.execute()
 
     def ChangeState(self, new_state):
         if not issubclass(new_state, State):
             raise Exception("f{new_state} is not a subclass of State")
 
-        self.current_state.on_exit(self)    # Call the on_exit method of the current state
-        self.current_state = new_state      # Change the current state to the new state
-        self.current_state.on_enter(self)   # Call the on_enter method of the new state
-        self.current_state.execute(self)    # Call the execute method of the new state
+        self.CurrentState = new_state      # Change the current state to the new state
+        self.CurrentState.on_exit()    # Call the on_exit method of the current state
+        self.CurrentState.on_enter()   # Call the on_enter method of the new state
+        self.CurrentState.execute()    # Call the execute method of the new state

@@ -1,19 +1,26 @@
-class State: # Abstract class / SUPERCLASS
-    def __init__(self):
-        raise Exception("You cannot initialize this class")
+from abc import ABC, abstractmethod
 
+class State(ABC): # Abstract class / SUPERCLASS
+    def __init__(self, robot):
+        self.robot = robot
+        super().__init__
+
+    @abstractmethod
     def on_enter(self):
         pass
 
+    @abstractmethod
     def on_exit(self):
         pass
 
+    @abstractmethod
     def execute(self):
         pass
 
 class Idle(State):
     def on_enter(self):
-        raise NotImplementedError
+        self.robot.Magnet.Disable()
+        self.robot.Face.Set("idling")
 
     def on_exit(self):
         raise NotImplementedError
