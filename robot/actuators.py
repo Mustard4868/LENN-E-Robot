@@ -1,4 +1,4 @@
-#from machine import Pin
+from machine import Pin
 
 class Motor():
     def __init__(self, pin):

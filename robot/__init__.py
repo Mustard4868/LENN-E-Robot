@@ -14,25 +14,27 @@ __version__ = '0.1.0'
 __path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
 from .states import *
-from .sensors import *
 from .actuators import *
 from .screen import *
+
+from sensors.hcsr04 import *
+from sensors.tcs3200 import *
 
 class Robot():
     def __init__(self):
 
         """ !!! CHANGE THE PIN NUMBERS TO THE CORRECT ONES !!! """
-        self.ColorSensor = ColorSensor(1)
-        self.UltraSonicSensor = UltrasonicSensor(2)
-        self.LeftContrastSensor = ContrastSensor(3)
-        self.RightContrastSensor = ContrastSensor(4)
+        self.UltrasonicSensor = HCSR04(trigger_pin=5, echo_pin=4)
+        self.ColorSensor = TCS3200(S0=5, S1=6, S2=7, S3=8, OUT=9)
+        self.LeftMotor = Motor("""PIN NUMBER""")
+        self.RightMotor = Motor("""PIN NUMBER""")
 
         self.LeftMotor = Motor(5)
         self.RightMotor = Motor(6)
         self.Servo = Servo(7)
         self.Magnet = Magnet(8)
 
-        self.Screen = Screen(22, 23)
+        self.Screen = Screen(21, 22) # SDA, SCL
         
         """ Initialize the state """
         self.CurrentState = Idle(self)
