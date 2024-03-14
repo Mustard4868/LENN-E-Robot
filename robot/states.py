@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from .abc import ABC, abstractmethod
 
 class State(ABC): # Abstract class / SUPERCLASS
     def __init__(self, robot):
