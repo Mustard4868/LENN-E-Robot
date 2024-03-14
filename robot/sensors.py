@@ -13,5 +13,5 @@ class TCS3200(object):
 
 """ Line following sensor """
 class HCS301(object):
-    def __init__(self) -> None:
+    def __init__(self, d1, d2, d3, d4, d5, d6, d7, d8, IR) -> None:
         pass

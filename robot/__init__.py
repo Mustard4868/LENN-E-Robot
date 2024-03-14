@@ -15,8 +15,7 @@ __path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
 from .states import *
 from .actuators import *
-from .sensors.hcsr04 import HCSR04
-from .sensors.tcs3200 import TCS3200
+from .sensors import *
 
 class Singleton(object):
     _instance = None
@@ -27,13 +26,22 @@ class Singleton(object):
 
 class Robot(Singleton):
     def __init__(self, test: bool = False) -> None:
-        """ !!! CHANGE THE PIN NUMBERS TO THE CORRECT ONES !!! """
-        self.UltrasonicSensor = HCSR04(trigger_pin=5, echo_pin=4)
-        self.ColorSensor = TCS3200(S0=5, S1=6, S2=7, S3=8, OUT=9)
-        self.LeftMotor = Motor(enA=27, in1=26, in2=25)
-        self.RightMotor = Motor(enA=22, in1=23, in2=24)
+        """
+        Robot class for LENN-E Robot.
+        test: bool = False // If True, the robot will enter test mode.
+        """
+        
+        # Sensors
+        self.UltrasonicSensor = HCSR04(trigger_pin=19, echo_pin=18)
+        self.ColorSensor = TCS3200(S2=1, S3=3, OUT=23) # S2 = TX0, S3 = RX0
+        self.LineSensor = HCS301(d1=26, d2=25, d3=33, d4=32, d5=35, d6=34, d7=39, d8=36, IR=27) # d7 = VN, d8 = VP
 
-        """ Initialize the state """
+        # Actuators
+        self.Magnet = Magnet(signal_pin=14)
+        self.LeftMotor = Motor(enA=15, in1=2, in2=4)
+        self.RightMotor = Motor(enA=5, in1=16, in2=17) # in1 = RX2, in2 = TX2
+
+        # Initialize the state
         self.CurrentState = Idle(self)
         self.CurrentState.on_enter()
         self.CurrentState.execute()

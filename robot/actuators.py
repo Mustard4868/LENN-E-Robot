@@ -35,6 +35,13 @@ class Motor():
 class Magnet():
     def __init__(self, signal_pin):
         self.signal_pin = Pin(signal_pin, Pin.OUT)
+        self.signal_pin.value(0)
+
+    def Test(self):
+        print("Testing Magnet...")
+        self.Enable()
+        time.sleep(1)
+        self.Disable()
     
     def Enable(self):
         self.signal_pin.value(1)
