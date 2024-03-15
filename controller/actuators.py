@@ -26,8 +26,19 @@ class Magnet():
         self.signal_pin = Pin(signal_pin, Pin.OUT)
         self.signal_pin.value(0)
 
-    def Enable(self):
+    def Enable(self) -> None:
         self.signal_pin.value(1)
 
-    def Disable(self):
+    def Disable(self) -> None:
         self.signal_pin.value(0)
+
+class Display():
+    def __init__(self, S, P, I):
+        self.S = Pin(S, Pin.OUT)
+
+
+    def Clear(self) -> None:
+        raise NotImplementedError
+    
+    def Write(self) -> None:
+        raise NotImplementedError
