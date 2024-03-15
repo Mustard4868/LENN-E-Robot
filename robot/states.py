@@ -19,8 +19,9 @@ class State(ABC): # Abstract class / SUPERCLASS
 
 class Idle(State):
     def on_enter(self):
-        self.robot.Magnet.Disable()
-        self.robot.Face.Set("idling")
+        self.LeftMotor.SetSpeed(0)
+        self.RightMotor.SetSpeed(0)
+        self.Magnet.Disable()
 
     def on_exit(self):
         raise NotImplementedError
