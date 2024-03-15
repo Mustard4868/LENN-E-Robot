@@ -31,6 +31,7 @@ class Robot(Singleton):
         Robot class for LENN-E Robot.
         test: bool = False // If True, the robot will enter test mode.
         """
+        State(self)
         
         # Sensors
         self.UltrasonicSensor = HCSR04(trigger_pin=19, echo_pin=18)
@@ -46,7 +47,7 @@ class Robot(Singleton):
         self.CurrentState = Idle(self)
         self.CurrentState.on_enter()
         self.CurrentState.execute()
-
+        
     def ChangeState(self, new_state) -> None:
         if not issubclass(new_state, State):
             raise Exception("f{new_state} is not a subclass of State")

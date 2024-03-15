@@ -1,9 +1,9 @@
-import robot
-from robot import *
+from controller import Robot
 
 def main():
     
-    Robot = robot.Robot(test=True)
+    global Robot
+    robot = Robot()
         
 if __name__ == "__main__":
     main()

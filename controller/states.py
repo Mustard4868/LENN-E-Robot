@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from main import Robot
 
 class State(ABC): # Abstract class / SUPERCLASS
-    def __init__(self, robot):
-        self.robot = robot
+    def __init__(self):
+        self.Robot = Robot
         super().__init__()
 
     @abstractmethod
@@ -19,6 +20,7 @@ class State(ABC): # Abstract class / SUPERCLASS
 
 class Idle(State):
     def on_enter(self):
+        """Turn off all actuators"""
         self.LeftMotor.SetSpeed(0)
         self.RightMotor.SetSpeed(0)
         self.Magnet.Disable()
