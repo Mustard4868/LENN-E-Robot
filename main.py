@@ -1,5 +1,6 @@
 from actuators import *
 from sensors import *
+from pid_controller import *
 import time
 
 class Robot:
@@ -13,7 +14,7 @@ class Robot:
         self.LeftMotor = Motor(enable=15, in_x=2, in_y=4)
         self.RightMotor = Motor(enable=5, in_x=16, in_y=17)
 
-        self.Magnet = Magnet(pin=14)
+        self.Magnet = Magnet(signal_pin=14)
 
         self.LeftEncoder = Encoder("channel 2")
         self.RightEncoder = Encoder("channel 3")
@@ -22,10 +23,8 @@ class Robot:
         self.UltrasonicSensor = UltrasonicSensor(trigger_pin=19, echo_pin=18)
         self.ColorSensor = ColorSensor(s2=12, s3=13, out=23)
 
-        self.initial_state = Idle()
-
     def changeState(self, state):
-        self.current_state = self.initial_state
+        self.current_state = state
         self.current_state.on_enter()
         self.current_state.execute()
 
@@ -33,10 +32,10 @@ class State:
     def __init__(self):
         self.robot = Robot()
     
-    def on_enter(self):
+    def on_enter(self) -> None:
         pass
 
-    def execute(self):
+    def execute(self) -> None:
         pass
 
 class Idle(State):
@@ -51,7 +50,7 @@ class Idle(State):
     
     def execute(self):
         print("Executing Idle State")
-        for i in range(10, 0):
+        for i in range(10, 0, -1):
             print(f"{i} seconds until test.")
             time.sleep(1)
         self.robot.changeState(Forward())
@@ -64,7 +63,7 @@ class Forward(State):
         print("Entering Test State")
 
     def execute(self):
-        while not self.robot.UltrasonicSensor.getDistance() < 10:
+        while not self.robot.UltrasonicSensor.getDistance(unit="mm") < 10:
             self.robot.LeftMotor.setSpeed(100)
             self.robot.RightMotor.setSpeed(100)
         print("Obstacle detected. Changing state to Stop.")
@@ -80,4 +79,6 @@ class Stop(State):
     def execute(self):
         self.robot.LeftMotor.setSpeed(0)
         self.robot.RightMotor.setSpeed(0)
-        exit()
+
+robot = Robot()
+robot.changeState(Idle())
