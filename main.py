@@ -50,7 +50,7 @@ class Idle(State):
     
     def execute(self):
         print("Executing Idle State")
-        for i in range(10, 0, -1):
+        for i in range(3, 0, -1):
             print(f"{i} seconds until test.")
             time.sleep(1)
         self.robot.changeState(Forward())
@@ -63,11 +63,33 @@ class Forward(State):
         print("Entering Test State")
 
     def execute(self):
-        while not self.robot.UltrasonicSensor.getDistance(unit="mm") < 10:
-            self.robot.LeftMotor.setSpeed(100)
-            self.robot.RightMotor.setSpeed(100)
-        print("Obstacle detected. Changing state to Stop.")
-        self.robot.changeState(Stop())
+        self.robot.LeftMotor.setSpeed(100)
+        self.robot.RightMotor.setSpeed(100)    
+        
+        while True:
+            distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
+
+            array = self.robot.LineSensor.__getArray()
+            mid_index = len(array) // 2
+            left_half = array[:mid_index]
+            right_half = array[mid_index:]
+            left_average = sum(left_half)/len(left_half)
+            right_average = sum(right_half)/len(right_half)
+            result = left_average - right_average
+
+            if 0 < distance < 100:
+                print("Obstacle detected!")
+                self.robot.changeState(Stop())
+                break
+
+            elif result < 0:
+                self.robot.LeftMotor.setSpeed(0)
+                self.robot.RightMotor.setSpeed(100)
+            elif result > 0:
+                self.robot.LeftMotor.setSpeed(100)
+                self.robot.RightMotor.setSpeed(0)
+
+            print(f"Distance: {distance} mm | Array average: {result}")
 
 class Stop(State):
     def __init__(self):
@@ -79,6 +101,23 @@ class Stop(State):
     def execute(self):
         self.robot.LeftMotor.setSpeed(0)
         self.robot.RightMotor.setSpeed(0)
+
+class Approach(State):
+    def __init__(self):
+        super().__init__()
+
+    def on_enter(self):
+        print("Entering Approach State")
+
+    def execute(self):
+        while True:
+            distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
+            self.robot.LeftMotor.setSpeed(distance)
+            self.robot.RightMotor.setSpeed(distance)
+            if distance < 2:
+                self.robot.Magnet.Set(True)
+                self.robot.changeState(Stop())
+                break
 
 robot = Robot()
 robot.changeState(Idle())

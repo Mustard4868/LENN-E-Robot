@@ -18,12 +18,14 @@ class Motor:
         else:
             self.in_x.value(0)
             self.in_y.value(1)
+
+        if speed == 0:
+            pwm_out = 0
         
-        min_speed = 40
-        if abs(speed) < min_speed and abs(speed) != 0:
-            speed = min_speed
-        
-        pwm_out = 1023 * abs(speed) // 100
+        else:
+            min_speed = 40
+            motor_speed = round(min_speed+(abs(speed)/100)*(100-min_speed))
+            pwm_out = 1023 * abs(motor_speed) // 100
 
         self.enable.duty(pwm_out)
 

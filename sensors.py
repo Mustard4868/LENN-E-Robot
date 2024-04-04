@@ -30,6 +30,7 @@ class UltrasonicSensor:
         
         distance = pulse_time * 100 // 582
         distance_units = distance / units[unit]
+        if unit == "mm": distance = int(distance)
         return distance_units
 
 class LineSensor:
