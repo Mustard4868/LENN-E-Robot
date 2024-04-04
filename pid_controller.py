@@ -1,15 +1,22 @@
 class PIDController:
-    def __init__(self, Kp, Ki, Kd, setpoint):
-        self.Kp = Kp
-        self.Ki = Ki
-        self.Kd = Kd
-        self.setpoint = setpoint
-        self.prev_error = 0
-        self.integral = 0
+    def __init__(self, kp=1.0, ki=0.0, kd=0.0, delta_t=0.01):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.delta_t = delta_t
+        self.error_prev = 0
+        self.error_acc = 0
 
-    def update(self, measured_value):
-        error = self.setpoint - measured_value
-        self.integral += error
-        derivative = error - self.prev_error
-        self.prev_error = error
-        return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+    def calculate(self, e):
+        # PID algorithm
+        P = self.kp * e
+        I = self.error_acc + self.ki * e * self.delta_t
+        D = self.kd * (e - self.error_prev) / self.delta_t
+
+        output = P + I + D
+
+        # Update error values for the next iteration
+        self.error_prev = e
+        self.error_acc = I
+
+        return output

@@ -55,6 +55,16 @@ class LineSensor:
             array.append(sensor.value())
         return array
     
+    def getLine(self) -> tuple:
+        """left_average, right_average, result"""
+        array = self.__getArray()
+        mid_index = len(array) // 2
+        left_half = array[:mid_index]
+        right_half = array[mid_index:]
+        left_average = sum(left_half)/len(left_half)
+        right_average = sum(right_half)/len(right_half)
+        result = left_average - right_average
+        return left_average, right_average, result
 class ColorSensor:
     def __init__(self, s2, s3, out):
         self.s2 = Pin(s2, Pin.OUT)
