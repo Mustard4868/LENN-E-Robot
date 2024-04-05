@@ -49,15 +49,35 @@ class LineSensor:
 
     def __getArray(self) -> list:
         """Returns an array of the line sensor values"""
-        array = []
-        sensors = [self.d1, self.d2, self.d3, self.d4, self.d5, self.d6, self.d7, self.d8]
-        for sensor in sensors:
-            array.append(sensor.value())
+        array = [
+            self.d1.value(),
+            self.d2.value(),
+            self.d3.value(),
+            self.d4.value(),
+            self.d5.value(),
+            self.d6.value(),
+            self.d7.value(),
+            self.d8.value()
+        ]
         return array
+    
+    def __movingAverage(self) -> list:
+        arrays = []
+        for i in range(5):
+            arrays.append(self.__getArray())
+
+        sum_array = [0] * len(arrays[0])
+
+        for array in arrays:
+            sum_array = [sum(x) for x in zip(sum_array, array)]
+
+        average_array = [x / len(arrays) for x in sum_array]
+
+        return average_array
     
     def getLine(self) -> tuple:
         """left_average, right_average, result"""
-        array = self.__getArray()
+        array = self.__movingAverage()
         mid_index = len(array) // 2
         left_half = array[:mid_index]
         right_half = array[mid_index:]
@@ -65,6 +85,7 @@ class LineSensor:
         right_average = sum(right_half)/len(right_half)
         result = left_average - right_average
         return left_average, right_average, result
+    
 class ColorSensor:
     def __init__(self, s2, s3, out):
         self.s2 = Pin(s2, Pin.OUT)

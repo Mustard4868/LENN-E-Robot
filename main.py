@@ -49,22 +49,24 @@ class Idle(State):
         self.robot.Magnet.Set(False)
     
     def execute(self):
-        print("Executing Idle State")
         for i in range(3, 0, -1):
             print(f"{i} seconds until test.")
             time.sleep(1)
         self.robot.changeState(Forward())
 
 class Forward(State):
+
     def __init__(self):
         super().__init__()
+        self.pid_controller = PIDController(kp = 6, ki = 0, kd = 0.2, setpoint=0)
 
     def on_enter(self):
-        print("Entering Test State")
+        print("Entering Forward State")
+        # Reset PID controller when entering the state
+        self.pid_controller.reset()
 
     def execute(self):
-        self.robot.LeftMotor.setSpeed(100)
-        self.robot.RightMotor.setSpeed(100)    
+        max_speed = 100
         
         while True:
             distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
@@ -72,21 +74,32 @@ class Forward(State):
 
             if 0 < distance < 100:
                 print("Obstacle detected!")
-                self.robot.changeState(Approach())
+                self.robot.changeState(Stop())
                 break
+            
+            elif left_average > 0.5 and right_average > 0.5:
+                left_speed = max_speed
+                right_speed = max_speed
 
-            elif left_average == 1 and right_average == 1:
-                self.robot.LeftMotor.setSpeed(100)
-                self.robot.RightMotor.setSpeed(100)
-        
+            elif left_average < 0.25 and right_average < 0.25:
+                left_speed = -0.5 * max_speed
+                right_speed = -0.5 * max_speed
+
             elif result < 0:
-                self.robot.LeftMotor.setSpeed(0) # 0 or int(-abs(result)*100)
-                self.robot.RightMotor.setSpeed(100)
-            elif result > 0:
-                self.robot.LeftMotor.setSpeed(100)
-                self.robot.RightMotor.setSpeed(0) # 0 or int(-abs(result)*100)
+                if result < -0.5:
+                    left_speed = -0.5 * max_speed
+                else: left_speed = 0
+                right_speed = 1 * max_speed
 
-            print(f"Distance: {distance} mm | Array average: {result}")
+            elif result > 0:
+                if result > 0.5:
+                    right_speed = -0.5 * max_speed
+                else: right_speed = 0
+                left_speed = 1 * max_speed
+
+            self.robot.LeftMotor.setSpeed(left_speed)
+            self.robot.RightMotor.setSpeed(right_speed)
+            print(f"{left_average}, {right_average}")
 
 class Stop(State):
     def __init__(self):
@@ -107,35 +120,8 @@ class Approach(State):
         print("Entering Approach State")
 
     def execute(self):
+        raise NotImplementedError
 
-        max_speed = 20
-        start_time = time.ticks_ms()
-        delay_time = 2000
-
-        while time.ticks_ms() < start_time + delay_time:
-            distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
-            left_average, right_average, result = self.robot.LineSensor.getLine()
-
-            if left_average == 1 and right_average == 1:
-                self.robot.LeftMotor.setSpeed(max_speed)
-                self.robot.RightMotor.setSpeed(max_speed)
-        
-            elif result < 0:
-                self.robot.LeftMotor.setSpeed(0) # 0 or int(-abs(result)*100)
-                self.robot.RightMotor.setSpeed(max_speed)
-            elif result > 0:
-                self.robot.LeftMotor.setSpeed(max_speed)
-                self.robot.RightMotor.setSpeed(0) # 0 or int(-abs(result)*100)
-
-            print(f"Distance: {distance} mm | Array average: {result}")
-        
-        self.robot.Magnet.Set(True)
-        time.sleep(1)
-        self.robot.LeftMotor.setSpeed(-max_speed)
-        self.robot.RightMotor.setSpeed(-max_speed)
-        time.sleep(2)
-        self.robot.Magnet.Set(False)
-        self.robot.changeState(Stop())        
 
 robot = Robot()
 robot.changeState(Idle())
