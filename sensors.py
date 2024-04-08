@@ -1,6 +1,7 @@
 from machine import Pin, time_pulse_us, SoftI2C
+from as5600 import *
 from utils import *
-import struct, math, time
+import time
 
 channels = {
     "channel 1" : b"\x02",
