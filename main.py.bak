@@ -55,14 +55,15 @@ class Idle(State):
         self.robot.changeState(Forward())
 
 class Forward(State):
+
     def __init__(self):
         super().__init__()
-        #self.pid_controller = PIDController(kp = 6, ki = 0, kd = 0.2, setpoint=0)
+        self.pid_controller = PIDController(kp = 6, ki = 0, kd = 0.2, setpoint=0)
 
     def on_enter(self):
         print("Entering Forward State")
         # Reset PID controller when entering the state
-        #self.pid_controller.reset()
+        self.pid_controller.reset()
 
     def execute(self):
         max_speed = 100
@@ -73,7 +74,7 @@ class Forward(State):
 
             if 0 < distance < 100:
                 print("Obstacle detected!")
-                self.robot.changeState(Approach())
+                self.robot.changeState(Stop())
                 break
             
             elif left_average > 0.5 and right_average > 0.5:
@@ -119,33 +120,8 @@ class Approach(State):
         print("Entering Approach State")
 
     def execute(self):
-        time.sleep(2)
-        for i in range (100, 0, -1):
-            self.robot.LeftMotor.setSpeed(i)
-            self.robot.RightMotor.setSpeed(i)
-            time.sleep(0.015)
-        color = self.robot.ColorSensor.getRGB()
-        print(color)
-        print("Hmmmm very obstacle. Much color. Wow.")
-        self.robot.Magnet.Set(True)
-        self.robot.LeftMotor.setSpeed(0)
-        self.robot.RightMotor.setSpeed(0)
-        time.sleep(2)
-        self.robot.changeState(Reverse())
+        raise NotImplementedError
 
-class Reverse(State):
-    def __init__(self):
-        super().__init__()
-
-    def on_enter(self):
-        print("Entering Reverse State")
-
-    def execute(self):
-        self.robot.LeftMotor.setSpeed(-100)
-        self.robot.RightMotor.setSpeed(-100)
-        time.sleep(2)
-        self.robot.Magnet.Set(False)
-        self.robot.changeState(Stop())
 
 robot = Robot()
 robot.changeState(Idle())
