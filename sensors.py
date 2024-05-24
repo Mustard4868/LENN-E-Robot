@@ -2,6 +2,8 @@ from machine import Pin, time_pulse_us, SoftI2C
 from utils import *
 import struct, math, time
 
+i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
+
 channels = {
     "channel 1" : b"\x02",
     "channel 2" : b"\x04",
@@ -38,42 +40,52 @@ class LineSensor:
         self.ir = Pin(ir, Pin.OUT)
         self.ir.on()
 
-        self.d1 = Pin(d1, Pin.IN)
-        self.d2 = Pin(d2, Pin.IN)
+        #self.d1 = Pin(d1, Pin.IN) BROKEN
+        #self.d2 = Pin(d2, Pin.IN) BROKEN
         self.d3 = Pin(d3, Pin.IN)
         self.d4 = Pin(d4, Pin.IN)
         self.d5 = Pin(d5, Pin.IN)
         self.d6 = Pin(d6, Pin.IN)
         self.d7 = Pin(d7, Pin.IN)
-        self.d8 = Pin(d8, Pin.IN)
+        #self.d8 = Pin(d8, Pin.IN) BROKEN
+
+        self.average_array = []
 
     def __getArray(self) -> list:
         """Returns an array of the line sensor values"""
         array = [
-            self.d1.value(),
-            self.d2.value(),
+            #self.d1.value(),
+            #self.d2.value(),
             self.d3.value(),
             self.d4.value(),
             self.d5.value(),
+            self.d5.value(), #DUPLICATE BECAUSE OF ODD NUMBER
             self.d6.value(),
             self.d7.value(),
-            self.d8.value()
+            #self.d8.value()
         ]
         return array
     
     def __movingAverage(self) -> list:
-        arrays = []
-        for i in range(5):
-            arrays.append(self.__getArray())
 
-        sum_array = [0] * len(arrays[0])
+        n = 5
 
-        for array in arrays:
+        if len(self.average_array) <= n:
+            for i in range(len(self.average_array), n):
+                self.average_array.append(self.__getArray())
+
+        self.average_array.pop(0)
+        self.average_array.append(self.__getArray())
+
+        sum_array = [0] * len(self.average_array[0])
+
+        for array in self.average_array:
             sum_array = [sum(x) for x in zip(sum_array, array)]
 
-        average_array = [x / len(arrays) for x in sum_array]
+        moving_average_array = [x / len(self.average_array) for x in sum_array]
 
-        return average_array
+        #print(moving_average_array)
+        return moving_average_array
     
     def getLine(self) -> tuple:
         """left_average, right_average, result"""
@@ -85,7 +97,7 @@ class LineSensor:
         right_average = sum(right_half)/len(right_half)
         result = left_average - right_average
         return left_average, right_average, result
-    
+
 class ColorSensor:
     def __init__(self, s2, s3, out):
         self.s2 = Pin(s2, Pin.OUT)
@@ -129,19 +141,50 @@ class ColorSensor:
         }
         return dict(sorted(dictionary.items()))
     
-class Encoder:
+
+class esp32_i2c:
     def __init__(self, channel):
         self.channel = channels[channel]
-        self.i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
 
     def __enableChannel(self):
-        self.i2c.writeto(0x70, b"\x00") # First disable all other channels
-        self.i2c.writeto(0x70, self.channel)
+        i2c.writeto(0x70, b"\x00") # First disable all other channels
+        i2c.writeto(0x70, self.channel)
 
-    def getAngle(self):
-        self.__enableChannel()
-        data = self.i2c.readfrom_mem(0x70, 0x0E, 2)
-        angle_raw = int.from_bytes(data, "big")
-        angle_deg = (angle_raw * 360) / 4096
+class Gyro(esp32_i2c):
+    def __init__(self, channel, steps):
+        super().__init__(channel)
+        self.i2c.writeto_mem(self.channel, 0x6B, bytes([0x01]))
+        self.array = []
+        self.n = steps
 
-        return angle_deg
+    def getGyroData(self) -> tuple[float, float, float]:
+        # set the modified based on the gyro range (need to divide to calculate)
+        gr:int = self.read_gyro_range()
+        modifier:float = None
+        if gr == 0:
+            modifier = 131.0
+        elif gr == 1:
+            modifier = 65.5
+        elif gr == 2:
+            modifier = 32.8
+        elif gr == 3:
+            modifier = 16.4
+            
+        # read data
+        data = self.i2c.readfrom_mem(self.address, 0x43, 6) # read 6 bytes (gyro data)
+        x:float = (self._translate_pair(data[0], data[1])) / modifier
+        y:float = (self._translate_pair(data[2], data[3])) / modifier
+        z:float = (self._translate_pair(data[4], data[5])) / modifier
+        
+        return (x, y, z)
+    
+    def getMovingAverage(self):
+        if len(self.array) < self.n:
+            for i in range(len(self.array), self.n):
+                self.array.append(self.getGyroData[0])
+        
+        x = 0
+        for item in self.array:
+            x = x+item
+        return x/self.n
+        

@@ -1,35 +1,19 @@
 class PIDController:
-    def __init__(self, kp, ki, kd, setpoint):
-        self.kp = kp  # Proportional gain
-        self.ki = ki  # Integral gain
-        self.kd = kd  # Derivative gain
-        self.setpoint = setpoint  # Desired value
-        self.prev_error = 0
-        self.integral = 0
-
-    def update(self, process_variable):
-        # Error calculation
-        error = self.setpoint - process_variable
-
-        # Proportional term
-        proportional = self.kp * error
-
-        # Integral term
-        self.integral += error
-        integral = self.ki * self.integral
-
-        # Derivative term
-        derivative = self.kd * (error - self.prev_error)
-        self.prev_error = error
-
-        # PID control output
-        pid_output = proportional + integral + derivative
-
-        return pid_output
-
-    def set_setpoint(self, setpoint):
+    def __init__(self, kp, ki, kd, setpoint=0):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
         self.setpoint = setpoint
-
-    def reset(self):
-        self.prev_error = 0
+        self.previous_error = 0
         self.integral = 0
+    
+    def reset(self):
+        self.previous_error = 0
+        self.integral = 0
+
+    def compute(self, measurement):
+        error = self.setpoint - measurement
+        self.integral += error
+        derivative = error - self.previous_error
+        self.previous_error = error
+        return self.kp * error + self.ki * self.integral + self.kd * derivative
