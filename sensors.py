@@ -1,6 +1,6 @@
 from machine import Pin, time_pulse_us, SoftI2C
 from utils import *
-import struct, math, time
+import time
 
 i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
 
@@ -50,9 +50,12 @@ class LineSensor:
         #self.d8 = Pin(d8, Pin.IN) BROKEN
 
         self.average_array = []
+        self.junction_array = []
 
-    def __getArray(self) -> list:
-        """Returns an array of the line sensor values"""
+    def __getArray(self) -> list[bool]:
+        """
+        Reads and returns IR sensor values.
+        """
         array = [
             #self.d1.value(),
             #self.d2.value(),
@@ -66,10 +69,11 @@ class LineSensor:
         ]
         return array
     
-    def __movingAverage(self) -> list:
-
+    def __movingAverage(self) -> list[float]:
+        """
+        Moving average filter where n is equal to the number of arrays used to calculate the average.
+        """
         n = 5
-
         if len(self.average_array) <= n:
             for i in range(len(self.average_array), n):
                 self.average_array.append(self.__getArray())
@@ -84,19 +88,46 @@ class LineSensor:
 
         moving_average_array = [x / len(self.average_array) for x in sum_array]
 
-        #print(moving_average_array)
         return moving_average_array
     
-    def getLine(self) -> tuple:
-        """left_average, right_average, result"""
+    def getJunction(self) -> bool:
+        """
+        Returns True when a junction is detected.\n
+        Makes use of a moving average, when the moving average sum is equal to 1. A junction should be detected.
+        """
+        n = 15
+
+        if len(self.junction_array) <= n:
+            for i in range(len(self.junction_array), n):
+                self.junction_array.append(self.__getArray())
+
+        self.junction_array.pop(0)
+        self.junction_array.append(self.__getArray())
+
+        sum_array = [0] * len(self.junction_array[0])
+        for array in self.junction_array:
+            sum_array = [sum(x) for x in zip(sum_array, array)]
+
+        moving_average_array = [x / len(self.junction_array) for x in sum_array]
+
+        l = len(moving_average_array)
+        print(self.__getArray())
+        if sum(moving_average_array)/l >= 1:
+            return True
+    
+    def getLine(self) -> float:
+        """
+        Calculates and returns deviation from line using moving average filter.\n
+        <0 == Deviation to the left.\n
+        >0 == Deviation to the right.    
+        """
         array = self.__movingAverage()
         mid_index = len(array) // 2
         left_half = array[:mid_index]
         right_half = array[mid_index:]
         left_average = sum(left_half)/len(left_half)
         right_average = sum(right_half)/len(right_half)
-        result = left_average - right_average
-        return left_average, right_average, result
+        return (left_average - right_average)
 
 class ColorSensor:
     def __init__(self, s2, s3, out):
@@ -116,23 +147,23 @@ class ColorSensor:
     def __getRed(self):
         self.s2.value(0)
         self.s3.value(0)
-        return 254 - time_pulse_us(self.out, 0)
+        return time_pulse_us(self.out, 0)
     
     def __getGreen(self):
         self.s2.value(1)
         self.s3.value(1)
-        return 254 - time_pulse_us(self.out, 0)
+        return time_pulse_us(self.out, 0)
     
     def __getBlue(self):
         self.s2.value(0)
         self.s3.value(1)
-        return 254 - time_pulse_us(self.out, 0)
+        return time_pulse_us(self.out, 0)
     
-    def getRGB(self) -> dict:
+    def getRGB(self) -> dict[str, int]:
         """
-        Returns a dictionary with the red, green and blue values
-        red : int, green : int, blue : int
-
+        Returns a dictionary with the red, green and blue values\n
+        Example:\n
+            {red: 255, green: 255, blue: 255}
         """
         dictionary = {
             "red": self.__getRed(),
@@ -141,7 +172,44 @@ class ColorSensor:
         }
         return dict(sorted(dictionary.items()))
     
+    def getColor(self) -> str:
 
+        n = 20
+        total_r, total_g, total_b = 0, 0, 0
+
+        for i in range(n):
+            r, g, b = self.getRGB().values()
+            total_r += r
+            total_g += g
+            total_b += b
+
+        avg_r = total_r / n
+        avg_g = total_g / n
+        avg_b = total_b / n
+
+        rgb = [avg_r, avg_g, avg_b]
+        print(rgb)
+
+        r, g, b = rgb
+
+        if r > 0 and g >= 200 and b >= 150:
+            return "Black"
+        
+        elif all(rgb[i] <= 50 for i in range(3)):
+            return "White"
+        
+        elif r < 60 and g >= 125 and b > 100:
+            return "Red"
+        
+        elif r < 60 and g < 125 and b > 100:
+            return "Green"
+        
+        elif r > 125 and g > 80 and b < 100:
+            return "Blue"
+        
+        else:
+            return "Undefined"
+    
 class esp32_i2c:
     def __init__(self, channel):
         self.channel = channels[channel]

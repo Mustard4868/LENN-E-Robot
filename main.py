@@ -1,5 +1,6 @@
 from actuators import *
 from sensors import *
+from mapping import *
 from utils.mpu6050 import *
 from pid_controller import *
 import time
@@ -12,6 +13,7 @@ class Robot:
     Use the State class to control the robot.\n
     """
     def __init__(self):
+        """ CLASS INITIALIZERS """
         self.LeftMotor = Motor(enable=15, in_x=2, in_y=4)
         self.RightMotor = Motor(enable=5, in_x=17, in_y=16)
 
@@ -21,10 +23,37 @@ class Robot:
         self.UltrasonicSensor = UltrasonicSensor(trigger_pin=19, echo_pin=18)
         self.ColorSensor = ColorSensor(s2=12, s3=14, out=13)
 
-    def changeState(self, state):
+        self.Mapping = floodFill()
+
+        """ VARIABLES """
+        self.starting_point = (10, 14)
+        self.target_point = (0, 0)
+
+        # Target points for the colored boxes to go.
+        self.red_target = (10, 14)
+        self.green_target = (10, 12)
+        self.blue_target = (10, 10)
+        self.black_target = (10, 8)
+
+        self.carrying = False # Is the robot carrying a payload?
+        #self.path = self.Mapping.bfs_shortest_path(start = self.starting_point, target = self.target_point) # Set initial path to start mission.
+
+    def changeState(self, state) -> None:
+        """
+        Change the current state of the robot.\n
+        Can only be a class that inherits from metaclass: "State"
+        """
         self.current_state = state
         self.current_state.on_enter()
         self.current_state.execute()
+
+    def cleanup(self) -> None:
+        """
+        Disables all actuators and exits the program.
+        """
+        self.Magnet.Set(False)
+        self.LeftMotor.setSpeed(0)
+        self.RightMotor.setSpeed(0)
 
 class State:
     def __init__(self):
@@ -37,6 +66,11 @@ class State:
         pass
 
     def cleanup(self) -> None:
+        """
+        Same as Robot.cleanup() without exiting the program.\n
+        Use this function to clean up from within the state machine.\n
+        !!! DO NOT USE OUTSIDE OF A STATE CLASS !!!       
+        """
         self.robot.LeftMotor.setSpeed(0)
         self.robot.RightMotor.setSpeed(0)
         self.robot.Magnet.Set(False)
@@ -50,15 +84,15 @@ class Idle(State):
         self.cleanup()
     
     def execute(self):
-        for i in range(3, 0, -1):
-            print(f"{i} seconds until test.")
+        for i in range(1, 0, -1):
+            #print(f"{i} seconds until test.")
             time.sleep(1)
         self.robot.changeState(Forward())
 
 class Forward(State):
     def __init__(self):
         super().__init__()
-        self.pid_controller = PIDController(kp=1.5, ki=0.0001, kd=0.999, setpoint=0)
+        self.pid_controller = PIDController(kp=1.5, ki=0.001, kd=0.999, setpoint=0)
 
     def on_enter(self):
         print("Entering Forward State")
@@ -69,16 +103,17 @@ class Forward(State):
 
         try:
             while True:
-                distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
-                left_average, right_average, result = self.robot.LineSensor.getLine()
+                #distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
+                result = self.robot.LineSensor.getLine()
 
-                if 0 < distance < 100:
-                    print("Obstacle detected!")
-                    self.robot.changeState(Approach())
-                    break
+                """ Mapping Logic
+                if self.robot.LineSensor.getJunction():
+                    print("Junction detected.")
+                    self.robot.changeState(Stop())
+                    break """
 
                 if sum(self.robot.LineSensor.__movingAverage()) == 0:
-                    self.robot.changeState(Scan(result))
+                    self.robot.changeState(Turn(180))
                     break
                 else:
                     correction = self.pid_controller.compute(result)
@@ -86,88 +121,87 @@ class Forward(State):
                     left_speed = base_speed - correction*100
                     right_speed = base_speed + correction*100
 
-                left_speed = max(min(left_speed, max_speed), -max_speed)
-                right_speed = max(min(right_speed, max_speed), -max_speed)
-
-                self.robot.LeftMotor.setSpeed(round(left_speed))
-                self.robot.RightMotor.setSpeed(round(right_speed))
-                #print(f"LEFT: {left_average}, RIGHT: {right_average}, RESULT: {result}, CORRECTION: {correction}, LEFT_SPEED: {left_speed}, RIGHT_SPEED: {right_speed}")
+                # Set rounded integer for motor speed within limits -100 to 100
+                self.robot.LeftMotor.setSpeed(round(max(min(left_speed, max_speed), -max_speed)))
+                self.robot.RightMotor.setSpeed(round(max(min(right_speed, max_speed), -max_speed)))
 
         except KeyboardInterrupt:
             self.cleanup()
             print("Exiting on keyboard interrupt.")
 
-class Scan(State):
+class Turn(State):
     def __init__(self, heading):
         super().__init__()
         self.heading = heading
 
-    def on_enter(self):
-        print("Entering Scan State")
+    def on_enter(self) -> None:
+        print(f"Entering Turn State: {self.heading} deg.")
+        robot.LeftMotor.setSpeed(0)
+        robot.RightMotor.setSpeed(0)
+
+    def execute(self) -> None:
+        start_time = time.time()
+        multiplier = 1
+        if self.heading < 0:
+            multiplier = -1
+
+        while start_time + abs(self.heading/60) > time.time():
+            self.robot.LeftMotor.setSpeed(50 * multiplier)
+            self.robot.RightMotor.setSpeed(-50 * multiplier)
+
         self.robot.LeftMotor.setSpeed(0)
         self.robot.RightMotor.setSpeed(0)
+        self.robot.changeState(Forward())
 
-    def execute(self):
-        if self.heading < 0:
-            self.robot.LeftMotor.setSpeed(-25)
-            self.robot.RightMotor.setSpeed(25)
-        else:
-            self.robot.LeftMotor.setSpeed(25)
-            self.robot.RightMotor.setSpeed(-25)
-        while True:
-            if sum(self.robot.LineSensor.__movingAverage()) != 0:
-                self.robot.changeState(Forward())
-                break
-
-"""
-COMMENTED OUT OLD FORWARD STATE FOR TESTING
-
-class Forward(State):
+class Detect(State):
     def __init__(self):
         super().__init__()
-        #self.pid_controller = PIDController(kp = 6, ki = 0, kd = 0.2, setpoint=0)
+        self.pid_controller = PIDController(kp=1.5, ki=0.001, kd=0.999, setpoint=0)
 
     def on_enter(self):
-        print("Entering Forward State")
-        # Reset PID controller when entering the state
-        #self.pid_controller.reset()
+        print("Entering Detect State")
+        if not self.robot.carrying:
+            self.cleanup()
+        else:
+            print("Robot is carrying a payload.\nUnable to detect type of obstacle, moving on.")
+            self.robot.changeState(Turn(180))
 
     def execute(self):
-        max_speed = 100
+        max_speed = 50 # Half the max speed to ensure a slow acceleration towards the box.
+        zero_limit = 10 # This is what the ultrasonic sensor measures when the robot is in contact with the box.
+
+        self.pid_controller.reset()
+
+        while self.robot.UltrasonicSensor.getDistance() in range(zero_limit, 200):
+            result = self.robot.LineSensor.getLine()
+
+            correction = self.pid_controller.compute(result)
+            base_speed = self.robot.UltrasonicSensor.getDistance() # Slow down robot when it gets closer to the box.
+            left_speed = base_speed - correction*100
+            right_speed = base_speed + correction*100
+
+            self.robot.LeftMotor.setSpeed(round(max(min(left_speed, max_speed), -max_speed)))
+            self.robot.RightMotor.setSpeed(round(max(min(right_speed, max_speed), -max_speed)))
         
+        """ Logic for determining color and selecting new path. """
+
         while True:
-            distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
-            left_average, right_average, result = self.robot.LineSensor.getLine()
-
-            if 0 < distance < 100:
-                print("Obstacle detected!")
-                self.robot.changeState(Approach())
+            color = self.robot.ColorSensor.getColor()
+            if color != "Undefined":
                 break
-            
-            elif left_average > 0.75 and right_average > 0.75:
-                left_speed = max_speed
-                right_speed = max_speed
 
-            elif left_average < 0.5 and right_average < 0.5:
-                left_speed = -0.5 * max_speed
-                right_speed = -0.5 * max_speed
-
-            elif result < 0:
-                if result < -0.5:
-                    left_speed = -0.5 * max_speed
-                else: left_speed = 0
-                right_speed = 1 * max_speed
-
-            elif result > 0:
-                if result > 0.5:
-                    right_speed = -0.5 * max_speed
-                else: right_speed = 0
-                left_speed = 1 * max_speed
-
-            self.robot.LeftMotor.setSpeed(left_speed)
-            self.robot.RightMotor.setSpeed(right_speed)
-            print(f"LEFT: {left_average}, RIGHT: {right_average}, RESULT: {result}")
-"""
+        if color == "Red":
+            self.robot.target_point = self.robot.red_target
+        elif color == "Green":
+            self.robot.target_point = self.robot.green_target
+        elif color == "Blue":
+            self.robot.target_point = self.robot.blue_target
+        elif color == "Black":
+            self.robot.target_point = self.robot.black_target
+        else:
+            raise Exception("Something went wrong!")
+        
+        self.robot.changeState(Turn(180)) # Turn 180 degrees and continue mission.
             
 class Stop(State):
     def __init__(self):
@@ -177,44 +211,13 @@ class Stop(State):
         print("Entering Stop State")
 
     def execute(self):
-        self.robot.LeftMotor.setSpeed(0)
-        self.robot.RightMotor.setSpeed(0)
+        self.cleanup()
 
-class Approach(State):
-    def __init__(self):
-        super().__init__()
-
-    def on_enter(self):
-        print("Entering Approach State")
-
-    def execute(self):
-        time.sleep(2)
-        for i in range (100, 0, -1):
-            self.robot.LeftMotor.setSpeed(i)
-            self.robot.RightMotor.setSpeed(i)
-            time.sleep(0.015)
-        color = self.robot.ColorSensor.getRGB()
-        print(color)
-        print("Hmmmm very obstacle. Much color. Wow.")
-        self.robot.Magnet.Set(True)
-        self.robot.LeftMotor.setSpeed(0)
-        self.robot.RightMotor.setSpeed(0)
-        time.sleep(2)
-        self.robot.changeState(Reverse())
-
-class Reverse(State):
-    def __init__(self):
-        super().__init__()
-
-    def on_enter(self):
-        print("Entering Reverse State")
-
-    def execute(self):
-        self.robot.LeftMotor.setSpeed(-100)
-        self.robot.RightMotor.setSpeed(-100)
-        time.sleep(2)
-        self.robot.Magnet.Set(False)
-        self.robot.changeState(Stop())
-
-robot = Robot()
-robot.changeState(Idle())
+while True:
+    try:
+        robot = Robot()
+        robot.changeState(Idle())
+        break
+    except KeyboardInterrupt as e:
+        print(f"Exiting program from main loop: {e}")
+        robot.cleanup()
