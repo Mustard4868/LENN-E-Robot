@@ -15,7 +15,9 @@ class UltrasonicSensor:
         self.trigger = Pin(trigger_pin, Pin.OUT)
         self.echo = Pin(echo_pin, Pin.IN)
 
-    def getDistance(self, unit = "mm") -> float:
+        self.distance_array = []
+
+    def __getDistance(self, unit = "mm") -> float:
         units = {"mm": 1, "cm": 10, "m": 1000}
         self.trigger.value(0)
         time.sleep_us(5)
@@ -35,19 +37,30 @@ class UltrasonicSensor:
         if unit == "mm": distance = int(distance)
         return distance_units
 
+    def getDistance(self, unit = "mm") -> float:
+        n = 10
+        distance_array = self.distance_array
+        if len(distance_array) < n:
+            for i in range(len(distance_array), n):
+                distance_array.append(self.__getDistance())
+        
+        distance_array.pop(0)
+        distance_array.append(self.__getDistance())
+
+        return sum(distance_array)/n
 class LineSensor:
     def __init__(self, ir, d1, d2, d3, d4, d5, d6, d7, d8):
         self.ir = Pin(ir, Pin.OUT)
         self.ir.on()
 
-        #self.d1 = Pin(d1, Pin.IN) BROKEN
-        #self.d2 = Pin(d2, Pin.IN) BROKEN
+        self.d1 = Pin(d1, Pin.IN)
+        self.d2 = Pin(d2, Pin.IN)
         self.d3 = Pin(d3, Pin.IN)
         self.d4 = Pin(d4, Pin.IN)
         self.d5 = Pin(d5, Pin.IN)
         self.d6 = Pin(d6, Pin.IN)
         self.d7 = Pin(d7, Pin.IN)
-        #self.d8 = Pin(d8, Pin.IN) BROKEN
+        self.d8 = Pin(d8, Pin.IN)
 
         self.average_array = []
         self.junction_array = []
@@ -57,15 +70,14 @@ class LineSensor:
         Reads and returns IR sensor values.
         """
         array = [
-            #self.d1.value(),
-            #self.d2.value(),
+            self.d1.value(),
+            self.d2.value(),
             self.d3.value(),
             self.d4.value(),
             self.d5.value(),
-            self.d5.value(), #DUPLICATE BECAUSE OF ODD NUMBER
             self.d6.value(),
             self.d7.value(),
-            #self.d8.value()
+            self.d8.value()
         ]
         return array
     
@@ -90,30 +102,34 @@ class LineSensor:
 
         return moving_average_array
     
-    def getJunction(self) -> bool:
+    def getJunction(self) -> str:
         """
         Returns True when a junction is detected.\n
         Makes use of a moving average, when the moving average sum is equal to 1. A junction should be detected.
         """
-        n = 15
+        junction_array = []
+        while len(junction_array) < 5:
+            line_array = self.__movingAverage()
+            mix_index = len(line_array) // 2
+            left_half = line_array[:mix_index]
+            right_half = line_array[mix_index:]
 
-        if len(self.junction_array) <= n:
-            for i in range(len(self.junction_array), n):
-                self.junction_array.append(self.__getArray())
+            left_res = sum(left_half)/len(left_half)
+            right_res = sum(right_half)/len(right_half)
 
-        self.junction_array.pop(0)
-        self.junction_array.append(self.__getArray())
+            if sum(line_array)/len(line_array) == 1:
+                junction_array.append("T")
 
-        sum_array = [0] * len(self.junction_array[0])
-        for array in self.junction_array:
-            sum_array = [sum(x) for x in zip(sum_array, array)]
+            if left_res == 1 and right_res != 1:
+                junction_array.append("R")
+            elif left_res != 1 and right_res == 1:
+                junction_array.append("L")
+            else:
+                junction_array.append("N")
+            break
 
-        moving_average_array = [x / len(self.junction_array) for x in sum_array]
+        return junction_array
 
-        l = len(moving_average_array)
-        print(self.__getArray())
-        if sum(moving_average_array)/l >= 1:
-            return True
     
     def getLine(self) -> float:
         """

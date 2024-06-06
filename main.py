@@ -23,11 +23,9 @@ class Robot:
         self.UltrasonicSensor = UltrasonicSensor(trigger_pin=19, echo_pin=18)
         self.ColorSensor = ColorSensor(s2=12, s3=14, out=13)
 
-        self.Mapping = floodFill()
-
         """ VARIABLES """
-        self.starting_point = (10, 14)
-        self.target_point = (0, 0)
+        self.starting_point = (0, 0)
+        self.target_point = (10, 14)
 
         # Target points for the colored boxes to go.
         self.red_target = (10, 14)
@@ -36,7 +34,11 @@ class Robot:
         self.black_target = (10, 8)
 
         self.carrying = False # Is the robot carrying a payload?
-        #self.path = self.Mapping.bfs_shortest_path(start = self.starting_point, target = self.target_point) # Set initial path to start mission.
+        self.current_position_index = 0
+
+        self.path = bfs_shortest_path(self.starting_point, self.target_point) # Set initial path to start mission.
+
+        self.junctions = getJunctions(self.path)
 
     def changeState(self, state) -> None:
         """
@@ -92,7 +94,7 @@ class Idle(State):
 class Forward(State):
     def __init__(self):
         super().__init__()
-        self.pid_controller = PIDController(kp=1.5, ki=0.001, kd=0.999, setpoint=0)
+        self.pid_controller = PIDController(kp=1.5, ki=0.0001, kd=0.999, setpoint=0)
 
     def on_enter(self):
         print("Entering Forward State")
@@ -101,33 +103,35 @@ class Forward(State):
     def execute(self):
         max_speed = 100
 
-        try:
-            while True:
-                #distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
-                result = self.robot.LineSensor.getLine()
+        while True:
+            distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
+            result = self.robot.LineSensor.getLine()
+            print(result)
 
-                """ Mapping Logic
-                if self.robot.LineSensor.getJunction():
-                    print("Junction detected.")
-                    self.robot.changeState(Stop())
-                    break """
+            getJunction = self.robot.LineSensor.getJunction()
+            if all(x == getJunction[0] for x in getJunction):
+                if getJunction[0] != "N":
+                    pass
 
-                if sum(self.robot.LineSensor.__movingAverage()) == 0:
-                    self.robot.changeState(Turn(180))
-                    break
+            if distance < 0:
+                if not self.robot.carrying:
+                    self.robot.changeState(Detect())
                 else:
-                    correction = self.pid_controller.compute(result)
-                    base_speed = max_speed
-                    left_speed = base_speed - correction*100
-                    right_speed = base_speed + correction*100
+                    self.robot.changeState(Turn(180))
+                break
 
-                # Set rounded integer for motor speed within limits -100 to 100
-                self.robot.LeftMotor.setSpeed(round(max(min(left_speed, max_speed), -max_speed)))
-                self.robot.RightMotor.setSpeed(round(max(min(right_speed, max_speed), -max_speed)))
+            if sum(self.robot.LineSensor.__movingAverage()) == 0:
+                self.robot.changeState(Turn(180))
+                break
+            else:
+                correction = self.pid_controller.compute(result)
+                base_speed = max_speed
+                left_speed = base_speed - correction*100
+                right_speed = base_speed + correction*100
 
-        except KeyboardInterrupt:
-            self.cleanup()
-            print("Exiting on keyboard interrupt.")
+            # Set rounded integer for motor speed within limits -100 to 100
+            self.robot.LeftMotor.setSpeed(round(max(min(left_speed, max_speed), -max_speed)))
+            self.robot.RightMotor.setSpeed(round(max(min(right_speed, max_speed), -max_speed)))
 
 class Turn(State):
     def __init__(self, heading):
@@ -156,7 +160,7 @@ class Turn(State):
 class Detect(State):
     def __init__(self):
         super().__init__()
-        self.pid_controller = PIDController(kp=1.5, ki=0.001, kd=0.999, setpoint=0)
+        self.pid_controller = PIDController(kp=1.5, ki=0.0001, kd=0.999, setpoint=0)
 
     def on_enter(self):
         print("Entering Detect State")
@@ -172,11 +176,13 @@ class Detect(State):
 
         self.pid_controller.reset()
 
-        while self.robot.UltrasonicSensor.getDistance() in range(zero_limit, 200):
+        start_time = time.time()
+
+        while start_time + 3 > time.time():
             result = self.robot.LineSensor.getLine()
 
             correction = self.pid_controller.compute(result)
-            base_speed = self.robot.UltrasonicSensor.getDistance() # Slow down robot when it gets closer to the box.
+            base_speed = 50 # Slow down robot when it gets closer to the box.
             left_speed = base_speed - correction*100
             right_speed = base_speed + correction*100
 
@@ -185,6 +191,7 @@ class Detect(State):
         
         """ Logic for determining color and selecting new path. """
 
+        self.cleanup()
         while True:
             color = self.robot.ColorSensor.getColor()
             if color != "Undefined":
@@ -200,7 +207,8 @@ class Detect(State):
             self.robot.target_point = self.robot.black_target
         else:
             raise Exception("Something went wrong!")
-        
+
+        self.robot.Magnet.Set(True)
         self.robot.changeState(Turn(180)) # Turn 180 degrees and continue mission.
             
 class Stop(State):
@@ -221,3 +229,4 @@ while True:
     except KeyboardInterrupt as e:
         print(f"Exiting program from main loop: {e}")
         robot.cleanup()
+        break
