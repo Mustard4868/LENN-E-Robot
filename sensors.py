@@ -102,13 +102,14 @@ class LineSensor:
 
         return moving_average_array
     
-    def getJunction(self) -> str:
+    def getJunction(self) -> list[str]:
         """
         Returns True when a junction is detected.\n
         Makes use of a moving average, when the moving average sum is equal to 1. A junction should be detected.
         """
         junction_array = []
         while len(junction_array) < 5:
+
             line_array = self.__movingAverage()
             mix_index = len(line_array) // 2
             left_half = line_array[:mix_index]
@@ -119,14 +120,12 @@ class LineSensor:
 
             if sum(line_array)/len(line_array) == 1:
                 junction_array.append("T")
-
-            if left_res == 1 and right_res != 1:
+            elif left_res == 1 and right_res != 1:
                 junction_array.append("R")
             elif left_res != 1 and right_res == 1:
                 junction_array.append("L")
             else:
                 junction_array.append("N")
-            break
 
         return junction_array
 

@@ -24,8 +24,8 @@ class Robot:
         self.ColorSensor = ColorSensor(s2=12, s3=14, out=13)
 
         """ VARIABLES """
-        self.starting_point = (0, 0)
-        self.target_point = (10, 14)
+        self.starting_point = (10, 14)
+        self.target_point = (0, 0)
 
         # Target points for the colored boxes to go.
         self.red_target = (10, 14)
@@ -37,8 +37,14 @@ class Robot:
         self.current_position_index = 0
 
         self.path = bfs_shortest_path(self.starting_point, self.target_point) # Set initial path to start mission.
-
-        self.junctions = getJunctions(self.path)
+        self.orientation = "north"
+        self.current_heading = 0
+        self.windrose = {
+            "north": 0,
+            "east": 90,
+            "south": 180,
+            "west": 270
+        }
 
     def changeState(self, state) -> None:
         """
@@ -84,6 +90,7 @@ class Idle(State):
     def on_enter(self):
         print("Entering Idle State")
         self.cleanup()
+        print(self.robot.path)
     
     def execute(self):
         for i in range(1, 0, -1):
@@ -94,7 +101,7 @@ class Idle(State):
 class Forward(State):
     def __init__(self):
         super().__init__()
-        self.pid_controller = PIDController(kp=1.5, ki=0.0001, kd=0.999, setpoint=0)
+        self.pid_controller = PIDController(kp=1.0, ki=0.0001, kd=0.999, setpoint=0)
 
     def on_enter(self):
         print("Entering Forward State")
@@ -102,16 +109,35 @@ class Forward(State):
 
     def execute(self):
         max_speed = 100
+        last_junction = "N"
 
         while True:
             distance = self.robot.UltrasonicSensor.getDistance(unit="mm")
             result = self.robot.LineSensor.getLine()
-            print(result)
-
+            
             getJunction = self.robot.LineSensor.getJunction()
-            if all(x == getJunction[0] for x in getJunction):
-                if getJunction[0] != "N":
-                    pass
+
+            if last_junction != getJunction[0]:
+                if all(x == getJunction[0] for x in getJunction):
+                    if getJunction[0] == "N":
+                        pass
+                    else:
+                        new_orientation = self.robot.path[self.robot.current_position_index]
+                        new_heading = self.robot.windrose[new_orientation[1]]
+                        self.robot.current_position_index += 1
+                        if new_heading >= 180: new_heading -= 180
+                        old_heading = self.robot.current_heading
+
+                        print(f"Current node: {self.robot.path[self.robot.current_position_index][0]}, direction: {self.robot.path[self.robot.current_position_index][1]}")
+
+                        self.robot.current_heading = new_heading
+                        self.robot.current_position_index += 1
+                        
+                        if new_heading != old_heading:
+                            time.sleep(0.1)
+                            self.robot.changeState(Turn(new_heading))
+                            break
+                    last_junction = getJunction[0]
 
             if distance < 0:
                 if not self.robot.carrying:
@@ -121,7 +147,7 @@ class Forward(State):
                 break
 
             if sum(self.robot.LineSensor.__movingAverage()) == 0:
-                self.robot.changeState(Turn(180))
+                self.robot.changeState(Stop())
                 break
             else:
                 correction = self.pid_controller.compute(result)
@@ -145,9 +171,9 @@ class Turn(State):
 
     def execute(self) -> None:
         start_time = time.time()
-        multiplier = 1
+        multiplier = -1
         if self.heading < 0:
-            multiplier = -1
+            multiplier = 1
 
         while start_time + abs(self.heading/60) > time.time():
             self.robot.LeftMotor.setSpeed(50 * multiplier)
@@ -228,5 +254,9 @@ while True:
         break
     except KeyboardInterrupt as e:
         print(f"Exiting program from main loop: {e}")
+        robot.cleanup()
+        break
+    except Exception as e:
+        print(e)
         robot.cleanup()
         break

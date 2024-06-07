@@ -1,5 +1,3 @@
-from collections import deque
-
 default_grid = [
 #0  1  2  3  4  5  6  7  8  9 10 11 12 13 14
 [1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], #0
@@ -14,17 +12,62 @@ default_grid = [
 [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], #9
 [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1] #10
 ]
+
+nodes = [
+    (1, 0), (1, 2), (1, 4), (1, 6), (1, 7), (1, 14),
+    (3, 7), (3, 14),
+    (5, 0), (5, 7), (5, 14),
+    (7, 0), (7, 7),
+    (9, 0), (9, 7), (9, 14),
+    (10, 8), (10, 10), (10, 12), (10, 14)
+]
+
 grid = default_grid
 rows = len(grid)
 cols = len(grid[0])
 directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 direction_names = {
-    "Up": "forward",
-    "Down": "backward",
-    "Left": "left",
-    "Right": "right"
+    "Up": "north",
+    "Down": "south",
+    "Left": "west",
+    "Right": "east"
 }
-orientation = "Up"
+orientation = "north"
+
+def update_orientation(current_position, next_position, current_orientation):
+    """
+    Update the robot's orientation based on the movement from current_position to next_position.
+    
+    Args:
+        current_position (tuple): (row, col) of the current position.
+        next_position (tuple): (row, col) of the next position.
+        current_orientation (str): The current orientation of the robot.
+        
+    Returns:
+        str: The new orientation of the robot.
+    """
+    current_row, current_col = current_position
+    next_row, next_col = next_position
+    
+    # Determine the movement direction
+    if next_row == current_row and next_col == current_col + 1:
+        direction = "Right"
+    elif next_row == current_row and next_col == current_col - 1:
+        direction = "Left"
+    elif next_row == current_row + 1 and next_col == current_col:
+        direction = "Down"
+    elif next_row == current_row - 1 and next_col == current_col:
+        direction = "Up"
+    else:
+        raise ValueError("Invalid movement from current_position to next_position")
+    
+    # Only update the orientation if the new direction is different from the current orientation
+    if direction_names[direction] != current_orientation:
+        new_orientation = direction_names[direction]
+    else:
+        new_orientation = current_orientation
+    
+    return new_orientation
 
 def bfs_shortest_path(start, target):
     """
@@ -35,7 +78,7 @@ def bfs_shortest_path(start, target):
         target (tuple): (row, col) of the target position.
     
     Returns:
-        list: Shortest path from start to target as a list of coordinates.
+        list: Shortest path from start to target as a list of coordinates and orientations.
     """
     if not isinstance(start, tuple) or not isinstance(target, tuple):
         raise ValueError("Start and target must be tuples representing coordinates (row, col)")
@@ -49,7 +92,15 @@ def bfs_shortest_path(start, target):
         current_row, current_col = current_pos
         
         if current_pos == target:
-            return path
+            path_nodes = []
+            current_orientation = orientation
+
+            for i in range(len(path) - 1):
+                if path[i] in nodes:
+                    path_nodes.append((path[i], current_orientation))
+                current_orientation = update_orientation(path[i], path[i+1], current_orientation)
+                
+            return path_nodes
         
         for dr, dc in directions:
             next_row, next_col = current_row + dr, current_col + dc
@@ -60,40 +111,3 @@ def bfs_shortest_path(start, target):
                 queue.append((next_pos, path + [next_pos]))
     
     return None
-
-def is_junction(row, col):
-    neighbor_count = 0
-    
-    for dr, dc in directions:
-        r, c = row + dr, col + dc
-        if r >= 0 and r < rows and c >= 0 and c < cols:  # Combine boundary checks
-            if grid[r][c] == 1:
-                neighbor_count += 1
-                if neighbor_count > 2:  # Early exit if more than 2 neighbors
-                    return True
-        
-    return False
-
-
-def update_orientation( new_direction):
-    old_orientation = orientation
-
-    if new_direction == (-1, 0):
-        orientation = "Up"
-    elif new_direction == (1, 0):
-        orientation = "Down"
-    elif new_direction == (0, -1):
-        orientation = "Left"
-    elif new_direction == (0, 1):
-        orientation = "Right"
-
-    if orientation != old_orientation:
-        print(f"Robot turned to face {direction_names[orientation]}")
-
-def getJunctions(path):
-    junctions = []
-    for position in path:
-        row, col = position
-        if is_junction(row, col):
-            junctions.append(position)
-    return junctions
